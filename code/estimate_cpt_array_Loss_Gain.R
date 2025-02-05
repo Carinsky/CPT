@@ -1,13 +1,14 @@
 # Preparation -------------------------------------------------------------
 
 # load pkgs
-pacman::p_load(tidyverse, R2jags)
-library(viridis)
-library(glue)
-library(tools)
-library(brms)
-library(abind)
-library(coda)
+pacman::p_load(tidyverse , 
+               R2jags , 
+               viridis , 
+               glue ,
+               tools ,
+               brms ,
+               abind , 
+               coda)
 
 # Initialization of regression and parameter plot data frames ------------------------------------------------------------
 
@@ -49,7 +50,8 @@ valid_papers <- c("Gloeckner12", "Ungemach09", "Rakow08", "noguchi15","hertwig04
 
 #Loop across all papers using JAGS + Generate Estimates + Regression
 for (p in valid_papers) {
-  paper <- read_rds(glue("data/PreprocessedPaperData/cpt_{p}.rds.bz2"))
+  #paper <- read_rds(glue("data/PreprocessedPaperData/cpt_{p}.rds.bz2"))
+  paper <- read_rds("data/PreprocessedPaperData/cpt_gloeckner16.rds.bz2")
   papername <- unique(paper$paper)
 
   #sort Subject then Gain then loss problems
@@ -75,8 +77,9 @@ for (p in valid_papers) {
   switch_rate_data <- paper_sorted %>%
     select(paper, problem,subject, cat_switch, avg_switchrate,dom) %>% 
     distinct() 
+  switch_rate_data <- switch_rate_data %>% distinct(subject, .keep_all = T) %>% select(subject, avg_switchrate)
     
-  switch_rate_data$subject <- seq_len(nrow(switch_rate_data))
+  #switch_rate_data$subject <- seq_len(nrow(switch_rate_data))
   
   
   ## create data object for JAGS
@@ -141,16 +144,16 @@ for (p in valid_papers) {
   # when rnorm(1, .4, .1), then .4 is the initial value for the parameter on the desired scale
 
   params_init <- function(){
-    list("mu.probit.alpha" = qnorm(rnorm(1, .4, .1)) , # hyper parameters (mu. prefix refers to  group level)
-         "mu.probit.gamma" = qnorm(rnorm(1, .5, .1)) ,
-         "mu.probit.delta" = qnorm(rnorm(1, .7, .1)) , 
-         "mu.probit.rho" = qnorm(.01) , 
-        "mu.probit.lambda" = qnorm(rnorm(1, .4, .1)),
-        "probit.alpha" = qnorm(rnorm(nsub, .4, .1)) , # individual level parameters
-        "probit.gamma" = qnorm(rnorm(nsub, .5, .1)) ,
-        "probit.delta" = qnorm(rnorm(nsub, .7, .1)) , 
-        "probit.rho" = qnorm(rep(.01, nsub)) ,
-        "probit.lambda" = qnorm(rnorm(nsub, .4, .1))) 
+    list("mu.probit.alpha" = 0 , # hyper parameters (mu. prefix refers to  group level)
+         "mu.probit.gamma" = 0 ,
+         "mu.probit.delta" = 0 , 
+         "mu.probit.rho" = -5 , 
+        "mu.probit.lambda" = 0,
+        "probit.alpha" = rep(0, nsub) , # individual level parameters
+        "probit.gamma" = rep(0, nsub) ,
+        "probit.delta" = rep(0, nsub) , 
+        "probit.rho" = rep(-5, nsub) ,
+        "probit.lambda" = rep(0, nsub)) 
   } 
 
 
@@ -161,10 +164,10 @@ for (p in valid_papers) {
     inits = params_init , # creates list of initial values for each chain
     parameters.to.save = params , 
     model.file = "code/models/CPT_hierarchical_array_Loss_Gain.txt" , # model code, see file
-    n.chains = 4 , # number of MCMC chains
-    n.iter = 2000 , # number of iterations (should be set much higher once it's clear that the model works)
-    n.burnin = 1000 , # first 1000 samples of each chain are discarded
-    n.thin = 1 , # with 1, every sample is stored, with 2, every 2nd sample is stored, ... to reduce autocorrelatons, use higher values. however, higher values require more iterations
+    n.chains = 6 , # number of MCMC chains
+    n.iter = 10000 , # number of iterations (should be set much higher once it's clear that the model works)
+    n.burnin = 5000 , # first 1000 samples of each chain are discarded
+    n.thin = 5 , # with 1, every sample is stored, with 2, every 2nd sample is stored, ... to reduce autocorrelatons, use higher values. however, higher values require more iterations
     n.cluster = 6 , # compute MCMC chains in parallel (on different cores of the computer)
     DIC = TRUE # store all posterior samples
   )
@@ -226,7 +229,7 @@ for (p in valid_papers) {
     select(-c(alpha, rho)) %>%
     expand_grid(p = seq(0, 1, .01)) %>% 
     mutate(w = round(  (delta * p^gamma)/ ((delta * p^gamma)+(1-p)^gamma), 4)) 
-
+  
   ind.weights <- left_join(ind.weights, switch_rate_data, by = "subject")
 
   # Calculation median switching rate
