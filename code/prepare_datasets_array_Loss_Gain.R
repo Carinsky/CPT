@@ -114,7 +114,7 @@ for (i in papernames) {
   # calculate average switchrate per subject
   paper <- paper %>%
     group_by(subject) %>% 
-    mutate(avg_switchrate = mean(r_switch, na.rm = TRUE)) %>% 
+    mutate(avg_switchrate = mean(r_switch, na.rm = TRUE), min_switchrate = min(r_switch, na.rm = TRUE), max_switchrate = max(r_switch, na.rm = TRUE)) %>% 
     ungroup() 
   
   #Get median

@@ -10,6 +10,25 @@ pacman::p_load(tidyverse)
 # read data (can be retrieved from: ) 
 data <- read.table("data/exp.txt") %>% as_tibble()
 
+unique(data$paper)
+num_part <- data  %>% group_by(paper) %>% summarise(sum_sub = n_distinct(subject))
+num_dec <- data  %>% group_by(paper, subject) %>% summarise(sum_problem = n_distinct(problem)) 
+num_dec <- num_dec  %>% group_by(paper) %>% summarise(num_problem = sum(sum_problem))
+
+table <-merge(num_dec,num_part, by = "paper")
+sum_row <- data.frame(
+  paper = "Total",
+  num_problem = sum(table$num_problem, na.rm = TRUE),
+  sum_sub = sum(table$sum_sub, na.rm = TRUE)
+)
+
+# Append sum row to the dataframe
+table <- rbind(table, sum_row)
+
+# View the updated dataframe
+print(table)
+####
+
 # Preprocessing -----------------------------------------------------------
 
 dat <- data %>% 

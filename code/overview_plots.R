@@ -13,6 +13,24 @@ library(purrr)
 #load data
 choices <- read_rds("data/trial_summaries.rds.bz2")
 
+choices <- choices %>% 
+  
+  filter(paper == "Camilleri09b" |  
+           paper == "Erev10" |  
+           paper == "Frey15" |  
+           paper == "Gloeckner12" |  
+           paper == "Gloeckner16" |  
+           paper == "Hau08" |  
+           paper == "Hertwig04" |  
+           paper == "Hertwig10" |  
+           paper == "Kellen16" |  
+           paper == "Noguchi15" |  
+           paper == "Rakow08" |  
+           paper == "Ungemach09" |  
+           paper == "Wulff12" |  
+           paper == "Wulff15a"   )
+           
+
 # prepare data for CPT --------------------------------------------------------------------
 
 dat_cpt <- choices %>% 
@@ -20,7 +38,7 @@ dat_cpt <- choices %>%
   # get problems where sampling is autonomous, outcomes are gains only, and with up to 2 outcomes per option
   
   filter(type == "free", 
-         dom == "Gain", 
+         dom == "Gain" | dom == "Loss", 
          probA3 == 0 & probA4 == 0 & probA5 == 0, 
          probB3 == 0 & probB4 == 0 & probB5 == 0) %>% 
   
@@ -44,8 +62,17 @@ dat_cpt <- choices %>%
   select(index:subject , 
          HA, sprobHA, LA, sprobLA , 
          HB, sprobHB, LB, sprobLB , 
-         choice, r_switch) 
+         choice, r_switch, dom) 
 
+#Adjust for Losses
+dat_cpt2 <- dat_cpt %>% mutate(
+  sprobHA = if_else(HA == 0 & sprobHA == 0, sprobLA, sprobHA) , 
+  sprobLA = 1-sprobHA,
+  sprobHB = if_else(HB == 0 & sprobHB == 0, sprobLB, sprobHB) , 
+  sprobLB = 1-sprobHB)
+  
+  
+  
 
 # compute number of problems and subjects in each data set 
 
@@ -62,6 +89,19 @@ nsubjects <- dat_cpt %>%
 overview <- left_join(nproblem, nsubjects, by=join_by(paper)) %>% 
   mutate(nchoice = nproblem * nsubject)
 
+dat_cpt <- dat_cpt %>%  
+  group_by(paper, subject) %>% 
+  mutate(avg_switchrate = mean(r_switch, na.rm = TRUE)) %>% 
+  ungroup() 
+
+#Calculate Median per Subject
+median_sub <- dat_cpt %>% group_by(paper, subject) %>% summarise(MedianSR = median(avg_switchrate))
+
+#Calculate Median per Paper
+median_paper <- median_sub %>% summarise(Median_SR = median(MedianSR))
+
+#Merge Median per Paper in working datasets
+dat_cpt <- merge(dat_cpt, median_paper, by = "paper")
 
 # function to create individual plot pair of sprobHA and sprobHB for each paper
 create_plot_sprob <- function(df, paper_name, bg_color) {
@@ -114,7 +154,7 @@ create_plot_sprob <- function(df, paper_name, bg_color) {
 ncol_grid <- 4
 
 # create the plots of sprob
-plots <- dat_cpt %>%
+plots <- dat_cpt2 %>%
   group_split(paper) %>%
   imap(~ {
     row <- ceiling(.y / ncol_grid)   
@@ -128,13 +168,13 @@ overview_plot_sprob <- wrap_plots(plots, ncol = ncol_grid) &
   theme(plot.margin = margin(5, 5, 5, 5)) 
 overview_plot_sprob
 
-ggsave("plots/sprob.png", plot = overview_plot_sprob)
+ggsave("plots/sprob_14.jpg", plot = overview_plot_sprob)
 
 
 # Function to create r_switch plot for each paper (with mean)
 create_plot_r_switch <- function(df, paper_name, bg_color) {
-  mean_r_switch <- mean(df$r_switch, na.rm = TRUE) # calculate mean
-  
+  median_avg_switchrate <- unique(df$Median_SR)
+
   p <- ggplot(df, aes(x = r_switch)) +
     geom_histogram(
       bins = 20,
@@ -143,19 +183,19 @@ create_plot_r_switch <- function(df, paper_name, bg_color) {
       alpha = 0.7
     ) +
     geom_vline(
-      xintercept = mean_r_switch,
+      xintercept = median_avg_switchrate,
       color = "red",
       linetype = "dashed",
       size = 0.7
     ) +
     annotate(
       "text",
-      x = mean_r_switch,
+      x = 0.5,
       y = Inf, 
-      label = paste0("Mean: ", round(mean_r_switch, 2)),
+      label = paste0("Median: ", round(median_avg_switchrate, 2)),
       color = "red",
       size = 3,
-      vjust = 2 
+      vjust = 1 
     ) +
     labs(x = "r_switch", y = "Frequency") +
     theme_minimal() +
@@ -183,6 +223,8 @@ create_plot_r_switch <- function(df, paper_name, bg_color) {
 # number column in grid
 ncol_grid <- 4
 
+
+
 # Generating plots
 plots <- dat_cpt %>%
   group_split(paper) %>%
@@ -199,4 +241,7 @@ overview_plot_r_switch <- wrap_plots(plots, ncol = ncol_grid) &
 
 overview_plot_r_switch
 
-ggsave("plots/r_switch.png", plot = overview_plot_r_switch)
+ggsave("plots/r_switch_14.jpg", plot = overview_plot_r_switch)
+
+
+
