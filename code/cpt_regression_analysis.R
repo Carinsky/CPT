@@ -431,8 +431,8 @@ mcmc_sample <- as.mcmc(mfit)
 ess<- effectiveSize(mcmc_sample)
 MCMCPlot <- plot(mcmc_sample)
 summary(mfit)
-write_rds(ess, paste("data/ESS.rds.bz2", sep =""), compress = "bz2")
-write_rds(reg_results_list, paste("data/RegResults.rds.bz2", sep =""), compress = "bz2")
+write_rds(ess, paste("data/RegressionResults/ESS.rds.bz2", sep =""), compress = "bz2")
+write_rds(reg_results_list, paste("data/RegressionResults/RegResults.rds.bz2", sep =""), compress = "bz2")
 ggsave(filename = paste0("plots/SummaryPlots/TracePlots_Density", papername, ".jpeg"), plot = MCMCPlot ,dpi = 300)
 
  # Plot Regression Avg Switchrate and Gamma
